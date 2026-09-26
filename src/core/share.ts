@@ -1,5 +1,5 @@
 import { makeProbe, normalizeScheme, uid } from './defaults'
-import type { Scheme, WeldType } from './types'
+import type { DefectKind, Scheme, WeldType } from './types'
 
 /**
  * Схема в ссылке: компактный массив → JSON → deflate → base64url.
@@ -11,6 +11,8 @@ type Packed = [
   // ширины и смещение кромок добавлены позже, в старых ссылках их нет
   [WeldType, number, number, number, number, number, number, number, number?, number?, number?],
   [string, 'L' | 'R', number, number, number, string, 0 | 1, number, number, number][],
+  // отражатели добавлены позже: вид, диаметр, положение, 1 — изнутри, доля глубины, виден, залегание БЦО
+  ([DefectKind, number, number, 0 | 1, number, 0 | 1, number][] | undefined)?,
 ]
 
 function pack(s: Scheme): Packed {
@@ -31,11 +33,12 @@ function pack(s: Scheme): Packed {
       p.wedge.height,
       p.wedge.front,
     ]),
+    s.defects.map((d) => [d.kind, d.diameter, d.x, d.from === 'inner' ? 1 : 0, d.depth, d.visible ? 1 : 0, d.cover]),
   ]
 }
 
 function unpack(v: Packed): Scheme {
-  const [, [od, t], [type, bevel, gap, land, capH, capOver, rootH, rootOver, widthTop, widthBottom, misalign], probes] = v
+  const [, [od, t], [type, bevel, gap, land, capH, capOver, rootH, rootOver, widthTop, widthBottom, misalign], probes, defects = []] = v
   return normalizeScheme({
     version: 1,
     pipe: { od, t },
@@ -51,6 +54,16 @@ function unpack(v: Packed): Scheme {
       color,
       visible: visible === 1,
       wedge: { length, height, front },
+    })),
+    defects: defects.map(([kind, diameter, x, inner, depth, visible, cover]) => ({
+      id: uid(),
+      kind,
+      diameter,
+      x,
+      from: inner === 1 ? 'inner' : 'outer',
+      depth,
+      cover,
+      visible: visible === 1,
     })),
   })
 }

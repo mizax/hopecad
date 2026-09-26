@@ -1,8 +1,9 @@
 import { computed, reactive, watch } from 'vue'
 import { buildGeometry } from './core/geometry'
 import { aimProbe, analyzeProbe } from './core/trace'
-import { defaultScheme, makeProbe, normalizeScheme } from './core/defaults'
-import type { Probe, Scheme } from './core/types'
+import { analyzeDefects } from './core/defects'
+import { defaultScheme, makeDefect, makeProbe, normalizeScheme } from './core/defaults'
+import type { DefectKind, Probe, Scheme } from './core/types'
 
 const STORAGE_KEY = 'hopecad:scheme:v1'
 
@@ -35,12 +36,19 @@ watch(
 )
 
 export const geometry = computed(() => buildGeometry(scheme.pipe, scheme.weld))
-export const results = computed(() => scheme.probes.map((p) => analyzeProbe(geometry.value, p)))
+export const results = computed(() =>
+  scheme.probes.map((p) => {
+    const r = analyzeProbe(geometry.value, p)
+    return { ...r, ...analyzeDefects(geometry.value, r, scheme.defects) }
+  }),
+)
+export type FullResult = (typeof results.value)[number]
 
 export function replaceScheme(next: Scheme) {
   scheme.pipe = next.pipe
   scheme.weld = next.weld
   scheme.probes = next.probes
+  scheme.defects = next.defects
 }
 
 /** Подбирает s, чтобы конец луча пришёлся на ось шва. false — если не вышло */
@@ -60,4 +68,15 @@ export function addProbe() {
 
 export function removeProbe(id: string) {
   scheme.probes = scheme.probes.filter((p) => p.id !== id)
+}
+
+export function addDefect(kind: DefectKind) {
+  const d = makeDefect(kind)
+  // БЦО по умолчанию — посередине стенки
+  d.cover = Math.round((geometry.value.t / 2) * 10) / 10
+  scheme.defects.push(d)
+}
+
+export function removeDefect(id: string) {
+  scheme.defects = scheme.defects.filter((d) => d.id !== id)
 }

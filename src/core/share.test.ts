@@ -9,10 +9,15 @@ describe('схема в ссылке', () => {
     s.weld.widthTop = 25.5
     s.probes[1].visible = false
     s.probes[2].name = 'ПЭП «Вадима»'
+    s.defects.push({ id: 'x', kind: 'half', diameter: 1.6, x: -9.5, from: 'inner', depth: 0.5, cover: 6.5, visible: false })
     const code = await encodeScheme(s)
     expect(code).toMatch(/^[A-Za-z0-9_-]+$/)
     const back = await decodeScheme(code)
-    const strip = (x: typeof s) => ({ ...x, probes: x.probes.map(({ id: _id, ...p }) => p) })
+    const strip = (x: typeof s) => ({
+      ...x,
+      probes: x.probes.map(({ id: _id, ...p }) => p),
+      defects: x.defects.map(({ id: _id, ...d }) => d),
+    })
     expect(strip(back)).toEqual(strip(s))
   })
 
@@ -27,6 +32,7 @@ describe('схема в ссылке', () => {
     expect(old.weld.type).toBe('V')
     expect(old.weld.widthTop).toBe(22)
     expect(old.probes[2].s).toBe(67.5)
+    expect(old.defects).toEqual([])
   })
 
   it('мусор в ссылке даёт ошибку, а не падение приложения', async () => {

@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import NumField from './NumField.vue'
 import ProbeCard from './ProbeCard.vue'
-import { addProbe, aim, removeProbe, results, scheme } from '../store'
+import DefectCard from './DefectCard.vue'
+import { addDefect, addProbe, aim, removeDefect, removeProbe, results, scheme } from '../store'
 import { WELD_NAMES } from '../labels'
 import type { Probe, WeldType } from '../core/types'
 
@@ -82,6 +83,22 @@ function onAim(p: Probe) {
         @remove="removeProbe(p.id)"
       />
       <button class="btn wide" @click="addProbe">Добавить ПЭП</button>
+    </details>
+
+    <details class="section" open>
+      <summary>Настроечные отражатели · {{ scheme.defects.length }}</summary>
+      <DefectCard
+        v-for="(d, i) in scheme.defects"
+        :key="d.id"
+        :defect="d"
+        :index="i"
+        @remove="removeDefect(d.id)"
+      />
+      <div class="add-row">
+        <button class="btn" @click="addDefect('through')">+ Сквозное</button>
+        <button class="btn" @click="addDefect('half')">+ Засверловка</button>
+        <button class="btn" @click="addDefect('sdh')">+ БЦО</button>
+      </div>
     </details>
   </div>
 </template>

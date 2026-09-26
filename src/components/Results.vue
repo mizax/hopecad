@@ -1,13 +1,23 @@
 <script setup lang="ts">
-import { geometry, results } from '../store'
-import { LEG_NAMES, SIDE_NAMES, SURFACE_NAMES, fmt, fmtAxis } from '../labels'
+import { geometry, results, scheme } from '../store'
+import { LEG_NAMES, SIDE_NAMES, SURFACE_NAMES, describeDefect, fmt, fmtAxis } from '../labels'
 import { DEG } from '../core/geometry'
-import type { Side } from '../core/types'
+import type { Probe, Side } from '../core/types'
+import type { Zone } from '../core/defects'
 
 const innerIncidence = (angle: number, side: Side) => {
   const w = geometry.value.wall[side]
   const v = (w.R / w.r) * Math.sin(angle * DEG)
   return v >= 1 ? null : Math.asin(v) / DEG
+}
+
+const defectIndex = (id: string) => scheme.defects.findIndex((d) => d.id === id)
+const defectById = (id: string) => scheme.defects.find((d) => d.id === id)!
+
+/** Поставить ПЭП в середину зоны: выбрать тип луча и расстояние */
+function aimAt(p: Probe, z: Zone) {
+  p.legs = z.legs
+  p.s = Math.round(z.best * 10) / 10
 }
 </script>
 
@@ -38,6 +48,48 @@ const innerIncidence = (angle: number, side: Side) => {
           <span v-else class="reach-v">нужно {{ fmt(x.s) }} мм, не встаёт: не хватает {{ fmt(x.shortBy) }} мм</span>
         </li>
       </ul>
+
+      <div v-if="r.zones.length" class="zones">
+        <div v-for="dz in r.zones" :key="dz.defectId" class="zone-row">
+          <div class="zone-name">
+            <b>Д{{ defectIndex(dz.defectId) + 1 }}</b>
+            {{ describeDefect(defectById(dz.defectId), geometry.t) }}
+            <template v-for="h in r.defectHits.filter((x) => x.defectId === dz.defectId)" :key="h.leg">
+              <span class="chip now">сейчас попадает: {{ LEG_NAMES[h.leg - 1] }}, S {{ fmt(h.path) }}, H {{ fmt(h.depth) }}</span>
+            </template>
+          </div>
+          <ul class="reach">
+            <li
+              v-for="{ legs, zone: z } in dz.zones"
+              :key="legs"
+              class="reach-item"
+              :class="z === null ? 'na' : z.fits ? 'ok' : 'bad'"
+            >
+              <span class="reach-k">
+                {{ LEG_NAMES[legs - 1] }}{{
+                  z?.mode === 'body' && defectById(dz.defectId).kind === 'half' ? ', через тело отверстия' : ''
+                }}
+              </span>
+              <span v-if="z === null" class="reach-v">не попасть</span>
+              <template v-else>
+                <span class="reach-v">
+                  {{ fmt(z.from) }}–{{ fmt(z.to) }} мм, центр {{ fmt(z.best) }}
+                </span>
+                <span class="reach-v">S {{ fmt(z.path) }} · H {{ fmt(z.depth) }}</span>
+                <button
+                  v-if="z.fits"
+                  class="btn mini"
+                  :title="`Поставить ${r.probe.name} на ${fmt(z.best)} мм, ${LEG_NAMES[z.legs - 1]}`"
+                  @click="aimAt(r.probe, z)"
+                >
+                  Навести
+                </button>
+                <span v-else class="reach-v">не встаёт: не хватает {{ fmt(r.frame.sMin - z.best) }} мм</span>
+              </template>
+            </li>
+          </ul>
+        </div>
+      </div>
 
       <div class="table-wrap">
         <table>

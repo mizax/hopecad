@@ -361,6 +361,34 @@ select {
   color: var(--warn-ink);
 }
 
+.defect-card {
+  border-left-color: var(--ink);
+}
+
+.defect-code {
+  font-family: var(--mono);
+}
+
+.defect-kind {
+  flex: 1;
+  color: var(--muted);
+}
+
+.seg.tight button {
+  padding-inline: 2px;
+}
+
+.add-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.add-row .btn {
+  flex: 1;
+}
+
 .field-row {
   display: grid;
   grid-template-columns: repeat(3, auto);
@@ -498,6 +526,42 @@ select {
 .reach-v {
   font-family: var(--mono);
   font-size: 12.5px;
+}
+
+.zones {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--line);
+}
+
+.zone-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  font-size: 13px;
+}
+
+.zone-name b {
+  font-family: var(--mono);
+}
+
+.zone-row .reach {
+  margin-top: 4px;
+}
+
+.chip.now {
+  color: var(--ok);
+  border-color: var(--ok);
+}
+
+.btn.mini {
+  justify-self: start;
+  margin-top: 3px;
+  padding: 1px 8px;
+  font-size: 12px;
 }
 
 .table-wrap {

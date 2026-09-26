@@ -1,6 +1,6 @@
 import { buildGeometry } from './geometry'
 import { aimProbe } from './trace'
-import type { Probe, Scheme, Side } from './types'
+import type { Defect, DefectKind, Probe, Scheme, Side } from './types'
 
 export const PROBE_COLORS = ['#E0301E', '#2F6FE0', '#1E9E5A', '#9150DB', '#D98A00']
 
@@ -21,12 +21,17 @@ export function makeProbe(index: number, side: Side = 'R', angle = 45, s = 30, l
   }
 }
 
+export function makeDefect(kind: DefectKind, x = 0): Defect {
+  return { id: uid(), kind, diameter: 2, x, from: 'outer', depth: 0.5, cover: 8, visible: true }
+}
+
 export function defaultScheme(): Scheme {
   const scheme: Scheme = {
     version: 1,
     pipe: { od: 219, t: 16 },
     weld: { type: 'V', bevel: 30, gap: 2, land: 1.5, capH: 2, capOver: 2, rootH: 1.5, rootOver: 1.5, widthTop: 22, widthBottom: 4, misalign: 0 },
     probes: [makeProbe(0, 'L', 50, 40, 1), makeProbe(1, 'R', 45, 21, 1), makeProbe(2, 'R', 45, 60, 2)],
+    defects: [makeDefect('through')],
   }
   const G = buildGeometry(scheme.pipe, scheme.weld)
   for (const p of scheme.probes) {
@@ -77,5 +82,20 @@ export function normalizeScheme(raw: unknown): Scheme {
         }
       })
     : d.probes
-  return { version: 1, pipe, weld, probes }
+  const defects = Array.isArray(o.defects)
+    ? o.defects.map((x) => {
+        const base = makeDefect('through')
+        return {
+          id: typeof x?.id === 'string' ? x.id : base.id,
+          kind: x?.kind === 'half' || x?.kind === 'sdh' ? x.kind : ('through' as const),
+          diameter: Math.max(0.1, num(x?.diameter, base.diameter)),
+          x: num(x?.x, base.x),
+          from: x?.from === 'inner' ? ('inner' as const) : ('outer' as const),
+          depth: Math.min(1, Math.max(0, num(x?.depth, base.depth))),
+          cover: Math.max(0, num(x?.cover, base.cover)),
+          visible: x?.visible !== false,
+        }
+      })
+    : []
+  return { version: 1, pipe, weld, probes, defects }
 }

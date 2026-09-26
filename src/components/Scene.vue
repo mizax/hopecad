@@ -2,9 +2,10 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { DEG, clamp } from '../core/geometry'
 import { probeSMin, wedgeAngle } from '../core/trace'
+import { defectShape } from '../core/defects'
 import type { Vec } from '../core/types'
 import { geometry, results, scheme } from '../store'
-import { LEG_NAMES, SIDE_NAMES, WELD_NAMES, fmt } from '../labels'
+import { LEG_NAMES, SIDE_NAMES, WELD_NAMES, describeDefect, fmt } from '../labels'
 
 const props = defineProps<{ showStamp: boolean }>()
 
@@ -154,6 +155,33 @@ const probes = computed(() =>
     }),
 )
 
+const defects = computed(() => {
+  const G = geometry.value
+  return scheme.defects
+    .map((d, i) => ({ d, i }))
+    .filter(({ d }) => d.visible)
+    .map(({ d, i }) => {
+      const shape = defectShape(G, d)
+      // подсвечиваем цветом первого ПЭП, чей луч сейчас проходит через отражатель
+      const hitBy = results.value.find((r) => r.probe.visible && r.defectHits.some((h) => h.defectId === d.id))
+      const label =
+        shape.kind === 'circle'
+          ? { x: X(shape.c.x) + Math.max(shape.rho * view.k, 3) + 4, y: Y(shape.c.y) + 4 }
+          : (() => {
+              const top = shape.pts.reduce((a, b) => (b.y > a.y ? b : a))
+              return { x: X(top.x) + 6, y: Y(top.y) - 6 }
+            })()
+      return {
+        id: d.id,
+        code: `Д${i + 1}`,
+        color: hitBy?.probe.color,
+        circle: shape.kind === 'circle' ? { cx: X(shape.c.x), cy: Y(shape.c.y), r: Math.max(shape.rho * view.k, 2.5) } : null,
+        poly: shape.kind === 'poly' ? shape.pts.map(pt).join(' ') : null,
+        label,
+      }
+    })
+})
+
 const stamp = computed(() => {
   const { pipe, weld } = scheme
   const lines = [
@@ -170,6 +198,10 @@ const stamp = computed(() => {
         (r) =>
           `${r.probe.name}: ${r.probe.angle}°, ${SIDE_NAMES[r.probe.side]}, ${fmt(r.frame.s)} мм от оси, ${LEG_NAMES[r.probe.legs - 1]}`,
       ),
+    ...scheme.defects
+      .map((d, i) => ({ d, i }))
+      .filter(({ d }) => d.visible)
+      .map(({ d, i }) => `Д${i + 1}: ${describeDefect(d, geometry.value.t)}`),
   ]
   const lh = 16
   const w = Math.min(size.W - 24, Math.max(...lines.map((l) => l.length)) * 6.3 + 20)
@@ -189,6 +221,7 @@ const scaleBar = computed(() => {
 
 type Drag =
   | { kind: 'probe'; id: string }
+  | { kind: 'defect'; id: string }
   | { kind: 'pan'; sx: number; sy: number; cx: number; cy: number }
   | { kind: 'pinch'; dist: number; k: number }
 
@@ -209,10 +242,14 @@ function onDown(e: PointerEvent) {
     drag = { kind: 'pinch', dist: Math.hypot(a.x - b.x, a.y - b.y), k: view.k }
     return
   }
-  const probeEl = (e.target as Element).closest('[data-probe]')
+  const target = e.target as Element
+  const probeEl = target.closest('[data-probe]')
+  const defectEl = target.closest('[data-defect]')
   drag = probeEl
     ? { kind: 'probe', id: probeEl.getAttribute('data-probe')! }
-    : { kind: 'pan', sx: p.x, sy: p.y, cx: view.cx, cy: view.cy }
+    : defectEl
+      ? { kind: 'defect', id: defectEl.getAttribute('data-defect')! }
+      : { kind: 'pan', sx: p.x, sy: p.y, cx: view.cx, cy: view.cy }
 }
 
 function onMove(e: PointerEvent) {
@@ -238,6 +275,17 @@ function onMove(e: PointerEvent) {
     probe.side = side
     const s = Math.max(G.wall[side].R * Math.abs(a - Math.PI / 2), probeSMin(G, probe))
     probe.s = Math.round(s * 10) / 10
+  } else if (drag.kind === 'defect') {
+    const id = drag.id
+    const d = scheme.defects.find((q) => q.id === id)
+    if (!d) return
+    const G = geometry.value
+    const w = toWorld(p.x, p.y)
+    const a = Math.atan2(w.y, w.x)
+    const wall = G.wall[w.x >= 0 ? 'R' : 'L']
+    d.x = Math.round(wall.R * (Math.PI / 2 - a) * 10) / 10
+    // БЦО таскается и по глубине
+    if (d.kind === 'sdh') d.cover = Math.round(clamp(wall.R - Math.hypot(w.x, w.y), 0, G.t) * 10) / 10
   }
 }
 
@@ -266,6 +314,9 @@ const svgCss = `
 .element{stroke:var(--ink);stroke-width:3;stroke-linecap:round}
 .in-wedge{fill:none;stroke-width:1;stroke-dasharray:3 3}
 .plabel{fill:var(--ink);font:600 12px/1 'IBM Plex Sans Condensed','Arial Narrow',sans-serif;text-anchor:middle}
+.defect{fill:var(--paper);stroke:var(--ink);stroke-width:1.2;cursor:grab}
+.defect.hit{stroke-width:2.4}
+.dlabel{fill:var(--ink);font:600 11px/1 'IBM Plex Mono',ui-monospace,monospace}
 .stamp-bg{fill:var(--panel);stroke:var(--line)}
 .stamp{fill:var(--ink);font:12px/1 'IBM Plex Sans Condensed','Arial Narrow',sans-serif}
 .scale{stroke:var(--ink);stroke-width:1.5}
@@ -313,6 +364,24 @@ const svgCss = `
       <path class="outline" :d="weldPath" />
 
       <line class="axis" :x1="axis.x" :x2="axis.x" :y1="axis.y0" :y2="axis.y1" />
+
+      <g v-for="d in defects" :key="d.id" :data-defect="d.id">
+        <circle
+          v-if="d.circle"
+          class="defect"
+          :class="{ hit: d.color }"
+          v-bind="d.circle"
+          :style="d.color ? { stroke: d.color, fill: d.color, fillOpacity: 0.35 } : {}"
+        />
+        <polygon
+          v-else-if="d.poly"
+          class="defect"
+          :class="{ hit: d.color }"
+          :points="d.poly"
+          :style="d.color ? { stroke: d.color, fill: d.color, fillOpacity: 0.35 } : {}"
+        />
+        <text class="dlabel" :x="d.label.x" :y="d.label.y">{{ d.code }}</text>
+      </g>
 
       <g v-for="b in beams" :key="b.id">
         <polyline class="beam" :points="b.line" :style="{ stroke: b.color }" />

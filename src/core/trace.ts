@@ -137,7 +137,7 @@ export function depthOf(G: Geometry, Q: Vec) {
   return wallAt(G, Q).R - Math.hypot(Q.x, Q.y)
 }
 
-function segIntersect(a: Vec, b: Vec, c: Vec, d: Vec) {
+export function segIntersect(a: Vec, b: Vec, c: Vec, d: Vec) {
   const rx = b.x - a.x
   const ry = b.y - a.y
   const sx = d.x - c.x
@@ -265,7 +265,7 @@ export function analyzeProbe(G: Geometry, p: Probe): ProbeResult {
   })
 
   const reach: Reach[] = [...new Set([1, 2, p.legs])].map((n) => {
-    const need = aimProbe(G, p, { legs: n, from: 0 })
+    const need = cachedAim(G, p, n)
     const fits = need !== null && need >= F.sMin - 1e-6
     return { legs: n, s: need, fits, shortBy: need === null || fits ? 0 : F.sMin - need }
   })
@@ -280,6 +280,17 @@ export function analyzeProbe(G: Geometry, p: Probe): ProbeResult {
     crossings: faceCrossings(G, tr),
     warnings,
   }
+}
+
+/** Нужная позиция не зависит от текущего s — кэшируем, чтобы не пересчитывать при перетаскивании */
+const aimCache = new WeakMap<Geometry, Map<string, number | null>>()
+
+function cachedAim(G: Geometry, p: Probe, legs: number) {
+  let cache = aimCache.get(G)
+  if (!cache) aimCache.set(G, (cache = new Map()))
+  const key = [p.side, p.angle, legs].join('|')
+  if (!cache.has(key)) cache.set(key, aimProbe(G, p, { legs, from: 0 }))
+  return cache.get(key)!
 }
 
 /**

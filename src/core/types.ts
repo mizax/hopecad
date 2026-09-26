@@ -63,11 +63,35 @@ export interface Probe {
   wedge: Wedge
 }
 
+/**
+ * Настроечный отражатель:
+ * through — сквозное радиальное отверстие; half — засверловка на долю стенки снаружи/изнутри;
+ * sdh — боковое цилиндрическое отверстие (БЦО), ось вдоль шва
+ */
+export type DefectKind = 'through' | 'half' | 'sdh'
+
+export interface Defect {
+  id: string
+  kind: DefectKind
+  /** Диаметр, мм */
+  diameter: number
+  /** Положение по наружной поверхности от оси шва, мм (+ справа) */
+  x: number
+  /** Засверловка: с какой поверхности сверлили */
+  from: 'outer' | 'inner'
+  /** Засверловка: глубина сверления в долях толщины стенки */
+  depth: number
+  /** БЦО: залегание — от наружной поверхности до центра отверстия, мм */
+  cover: number
+  visible: boolean
+}
+
 export interface Scheme {
   version: 1
   pipe: Pipe
   weld: Weld
   probes: Probe[]
+  defects: Defect[]
 }
 
 /** Дуга окружности: от a0 против часовой стрелки на sweep радиан */
