@@ -19,6 +19,7 @@ export const WELD_NAMES: Record<WeldType, string> = {
   V: 'V-образная',
   X: 'X-образная',
   I: 'без скоса',
+  C: 'по факту',
 }
 
 export const SIDE_NAMES: Record<Side, string> = { L: 'слева', R: 'справа' }

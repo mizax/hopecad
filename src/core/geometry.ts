@@ -51,7 +51,16 @@ export function buildGeometry(pipe: Pipe, weld: Weld): Geometry {
   const down: Vec = { x: Math.sin(a), y: -Math.cos(a) }
 
   let faceR: Vec[]
-  if (weld.type === 'I') {
+  const asBuilt = weld.type === 'C'
+  if (asBuilt) {
+    // прямая кромка от ширины снизу до ширины сверху
+    const xb = clamp(weld.widthBottom / 2, 0, r * 0.6)
+    const xt = clamp(weld.widthTop / 2, 0, R * 0.6)
+    faceR = [
+      { x: xb, y: yI(xb) },
+      { x: xt, y: yO(xt) },
+    ]
+  } else if (weld.type === 'I') {
     faceR = [
       { x: g2, y: yI(g2) },
       { x: g2, y: yO(g2) },
@@ -80,7 +89,8 @@ export function buildGeometry(pipe: Pipe, weld: Weld): Geometry {
 
   // Валик усиления сверху
   const hasCap = weld.capH > 0.05
-  const wc = clamp(C.x + (hasCap ? weld.capOver : 0), 0, R * 0.8)
+  // у шва «по факту» валик и проплав ровно по ширине шва
+  const wc = clamp(C.x + (hasCap && !asBuilt ? weld.capOver : 0), 0, R * 0.8)
   const yE = yO(wc)
   const thC = Math.atan2(yE, wc)
   const capApexY = R + (hasCap ? weld.capH : 0)
@@ -90,7 +100,7 @@ export function buildGeometry(pipe: Pipe, weld: Weld): Geometry {
 
   // Проплав снизу
   const hasRoot = weld.rootH > 0.05
-  const wr = clamp(A.x + (hasRoot ? weld.rootOver : 0), 0, r * 0.8)
+  const wr = clamp(A.x + (hasRoot && !asBuilt ? weld.rootOver : 0), 0, r * 0.8)
   const yRe = yI(wr)
   const thR = Math.atan2(yRe, wr)
   const rootApexY = r - (hasRoot ? weld.rootH : 0)

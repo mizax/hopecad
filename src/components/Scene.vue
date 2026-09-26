@@ -163,9 +163,11 @@ const stamp = computed(() => {
   const { pipe, weld } = scheme
   const lines = [
     `Труба Ø${pipe.od}×${pipe.t} мм`,
-    weld.type === 'I'
-      ? `Шов без скоса кромок, зазор ${weld.gap} мм`
-      : `Разделка ${WELD_NAMES[weld.type]} ${weld.bevel}°, зазор ${weld.gap}, притупление ${weld.land} мм`,
+    weld.type === 'C'
+      ? `Шов по факту: ширина ${weld.widthTop} сверху / ${weld.widthBottom} снизу, валик ${weld.capH} / проплав ${weld.rootH} мм`
+      : weld.type === 'I'
+        ? `Шов без скоса кромок, зазор ${weld.gap} мм`
+        : `Разделка ${WELD_NAMES[weld.type]} ${weld.bevel}°, зазор ${weld.gap}, притупление ${weld.land} мм`,
     ...results.value
       .filter((r) => r.probe.visible)
       .map(

@@ -25,7 +25,7 @@ export function defaultScheme(): Scheme {
   const scheme: Scheme = {
     version: 1,
     pipe: { od: 219, t: 16 },
-    weld: { type: 'V', bevel: 30, gap: 2, land: 1.5, capH: 2, capOver: 2, rootH: 1.5, rootOver: 1.5 },
+    weld: { type: 'V', bevel: 30, gap: 2, land: 1.5, capH: 2, capOver: 2, rootH: 1.5, rootOver: 1.5, widthTop: 22, widthBottom: 4 },
     probes: [makeProbe(0, 'L', 50, 40, 1), makeProbe(1, 'R', 45, 21, 1), makeProbe(2, 'R', 45, 60, 2)],
   }
   const G = buildGeometry(scheme.pipe, scheme.weld)
@@ -45,7 +45,7 @@ export function normalizeScheme(raw: unknown): Scheme {
   const pipe = { od: num(o.pipe?.od, d.pipe.od), t: num(o.pipe?.t, d.pipe.t) }
   const w = o.weld ?? d.weld
   const weld = {
-    type: w.type === 'V' || w.type === 'X' || w.type === 'I' ? w.type : d.weld.type,
+    type: w.type === 'V' || w.type === 'X' || w.type === 'I' || w.type === 'C' ? w.type : d.weld.type,
     bevel: num(w.bevel, d.weld.bevel),
     gap: num(w.gap, d.weld.gap),
     land: num(w.land, d.weld.land),
@@ -53,6 +53,8 @@ export function normalizeScheme(raw: unknown): Scheme {
     capOver: num(w.capOver, d.weld.capOver),
     rootH: num(w.rootH, d.weld.rootH),
     rootOver: num(w.rootOver, d.weld.rootOver),
+    widthTop: num(w.widthTop, d.weld.widthTop),
+    widthBottom: num(w.widthBottom, d.weld.widthBottom),
   }
   const probes = Array.isArray(o.probes)
     ? o.probes.map((p, i) => {

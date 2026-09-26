@@ -210,6 +210,12 @@ select {
   padding-block: 4px 6px;
 }
 
+.hint {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
 .field {
   display: grid;
   gap: 2px;

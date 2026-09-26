@@ -8,7 +8,8 @@ import type { Scheme, WeldType } from './types'
 type Packed = [
   1,
   [number, number],
-  [WeldType, number, number, number, number, number, number, number],
+  // ширины сверху/снизу добавлены позже, в старых ссылках их нет
+  [WeldType, number, number, number, number, number, number, number, number?, number?],
   [string, 'L' | 'R', number, number, number, string, 0 | 1, number, number, number][],
 ]
 
@@ -17,7 +18,7 @@ function pack(s: Scheme): Packed {
   return [
     1,
     [s.pipe.od, s.pipe.t],
-    [w.type, w.bevel, w.gap, w.land, w.capH, w.capOver, w.rootH, w.rootOver],
+    [w.type, w.bevel, w.gap, w.land, w.capH, w.capOver, w.rootH, w.rootOver, w.widthTop, w.widthBottom],
     s.probes.map((p) => [
       p.name,
       p.side,
@@ -34,11 +35,11 @@ function pack(s: Scheme): Packed {
 }
 
 function unpack(v: Packed): Scheme {
-  const [, [od, t], [type, bevel, gap, land, capH, capOver, rootH, rootOver], probes] = v
+  const [, [od, t], [type, bevel, gap, land, capH, capOver, rootH, rootOver, widthTop, widthBottom], probes] = v
   return normalizeScheme({
     version: 1,
     pipe: { od, t },
-    weld: { type, bevel, gap, land, capH, capOver, rootH, rootOver },
+    weld: { type, bevel, gap, land, capH, capOver, rootH, rootOver, widthTop, widthBottom } as Scheme['weld'],
     probes: probes.map(([name, side, angle, s, legs, color, visible, length, height, front], i) => ({
       ...makeProbe(i),
       id: uid(),

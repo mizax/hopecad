@@ -3,7 +3,8 @@ export interface Vec {
   y: number
 }
 
-export type WeldType = 'V' | 'X' | 'I'
+/** V, X, I — по ГОСТ-разделке; C — «по факту»: шов задан шириной сверху и снизу */
+export type WeldType = 'V' | 'X' | 'I' | 'C'
 export type Side = 'L' | 'R'
 export type Surface = 'outer' | 'inner' | 'cap' | 'root'
 
@@ -30,6 +31,10 @@ export interface Weld {
   rootH: number
   /** Заход проплава с каждой стороны, мм */
   rootOver: number
+  /** Для «по факту»: ширина шва по наружной поверхности, мм */
+  widthTop: number
+  /** Для «по факту»: ширина шва по внутренней поверхности, мм */
+  widthBottom: number
 }
 
 export interface Wedge {

@@ -7,6 +7,7 @@ import type { Probe, WeldType } from '../core/types'
 
 const emit = defineEmits<{ toast: [message: string] }>()
 const weldTypes = Object.keys(WELD_NAMES) as WeldType[]
+const WELD_BUTTONS: Record<WeldType, string> = { V: 'V', X: 'X', I: 'без скоса', C: 'по факту' }
 
 function onAim(p: Probe) {
   if (!aim(p)) emit('toast', `${p.name}: при таком угле конец луча не попадает на ось шва`)
@@ -28,34 +29,44 @@ function onAim(p: Probe) {
           v-for="t in weldTypes"
           :key="t"
           :aria-pressed="scheme.weld.type === t"
+          :title="WELD_NAMES[t]"
           @click="scheme.weld.type = t"
         >
-          {{ WELD_NAMES[t] }}
+          {{ WELD_BUTTONS[t] }}
         </button>
       </div>
-      <NumField
-        v-if="scheme.weld.type !== 'I'"
-        v-model="scheme.weld.bevel"
-        label="Угол скоса кромки"
-        :min="0"
-        :max="60"
-        :step="0.5"
-        unit="°"
-      />
-      <NumField v-model="scheme.weld.gap" label="Зазор" :min="0" :max="6" :step="0.1" unit="мм" />
-      <NumField
-        v-if="scheme.weld.type !== 'I'"
-        v-model="scheme.weld.land"
-        label="Притупление"
-        :min="0"
-        :max="8"
-        :step="0.1"
-        unit="мм"
-      />
-      <NumField v-model="scheme.weld.capH" label="Усиление: высота" :min="0" :max="5" :step="0.1" unit="мм" />
-      <NumField v-model="scheme.weld.capOver" label="Усиление: заход на кромку" :min="0" :max="6" :step="0.1" unit="мм" />
-      <NumField v-model="scheme.weld.rootH" label="Проплав: высота" :min="0" :max="4" :step="0.1" unit="мм" />
-      <NumField v-model="scheme.weld.rootOver" label="Проплав: заход" :min="0" :max="4" :step="0.1" unit="мм" />
+      <template v-if="scheme.weld.type === 'C'">
+        <p class="hint">Шов как получился: кромки — прямые от ширины снизу до ширины сверху, валик и проплав — дуги.</p>
+        <NumField v-model="scheme.weld.widthTop" label="Ширина шва сверху" :min="0" :max="60" :step="0.1" unit="мм" />
+        <NumField v-model="scheme.weld.widthBottom" label="Ширина шва снизу" :min="0" :max="30" :step="0.1" unit="мм" />
+        <NumField v-model="scheme.weld.capH" label="Высота валика сверху" :min="0" :max="6" :step="0.1" unit="мм" />
+        <NumField v-model="scheme.weld.rootH" label="Высота валика снизу (проплав)" :min="0" :max="5" :step="0.1" unit="мм" />
+      </template>
+      <template v-else>
+        <NumField
+          v-if="scheme.weld.type !== 'I'"
+          v-model="scheme.weld.bevel"
+          label="Угол скоса кромки"
+          :min="0"
+          :max="60"
+          :step="0.5"
+          unit="°"
+        />
+        <NumField v-model="scheme.weld.gap" label="Зазор" :min="0" :max="6" :step="0.1" unit="мм" />
+        <NumField
+          v-if="scheme.weld.type !== 'I'"
+          v-model="scheme.weld.land"
+          label="Притупление"
+          :min="0"
+          :max="8"
+          :step="0.1"
+          unit="мм"
+        />
+        <NumField v-model="scheme.weld.capH" label="Усиление: высота" :min="0" :max="5" :step="0.1" unit="мм" />
+        <NumField v-model="scheme.weld.capOver" label="Усиление: заход на кромку" :min="0" :max="6" :step="0.1" unit="мм" />
+        <NumField v-model="scheme.weld.rootH" label="Проплав: высота" :min="0" :max="4" :step="0.1" unit="мм" />
+        <NumField v-model="scheme.weld.rootOver" label="Проплав: заход" :min="0" :max="4" :step="0.1" unit="мм" />
+      </template>
     </details>
 
     <details class="section" open>

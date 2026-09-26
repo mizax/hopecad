@@ -4,7 +4,7 @@ import { makeProbe } from './defaults'
 import { aimProbe, analyzeProbe, beamDir, faceCrossings, probeFrame, traceRay } from './trace'
 import type { Weld } from './types'
 
-const plainWeld: Weld = { type: 'V', bevel: 30, gap: 2, land: 1.5, capH: 0, capOver: 0, rootH: 0, rootOver: 0 }
+const plainWeld: Weld = { type: 'V', bevel: 30, gap: 2, land: 1.5, capH: 0, capOver: 0, rootH: 0, rootOver: 0, widthTop: 22, widthBottom: 4 }
 const weld: Weld = { ...plainWeld, capH: 2, capOver: 2, rootH: 1.5, rootOver: 1.5 }
 
 describe('геометрия', () => {
@@ -15,6 +15,21 @@ describe('геометрия', () => {
     expect(Math.hypot(A.x, A.y)).toBeCloseTo(G.r, 6)
     expect(Math.hypot(C.x, C.y)).toBeCloseTo(G.R, 6)
     expect(A.x).toBeCloseTo(1, 6)
+  })
+
+  it('шов «по факту»: кромка от ширины снизу к ширине сверху, валики ровно по ширине', () => {
+    const G = buildGeometry({ od: 219, t: 16 }, { ...weld, type: 'C', widthTop: 20, widthBottom: 5, capH: 3, rootH: 2 })
+    const [A, C] = G.faceR
+    expect(G.faceR).toHaveLength(2)
+    expect(A.x).toBeCloseTo(2.5, 9)
+    expect(Math.hypot(A.x, A.y)).toBeCloseTo(G.r, 9)
+    expect(C.x).toBeCloseTo(10, 9)
+    expect(Math.hypot(C.x, C.y)).toBeCloseTo(G.R, 9)
+    expect(G.capEdgeX).toBeCloseTo(10, 9)
+    expect(G.capApexY).toBeCloseTo(G.R + 3, 9)
+    expect(G.rootApexY).toBeCloseTo(G.r - 2, 9)
+    const res = analyzeProbe(G, makeProbe(0, 'R', 45, 0, 1))
+    expect(res.frame.s).toBeCloseTo(G.R * (Math.PI / 2 - Math.atan2(Math.sqrt(G.R ** 2 - 100), 10)) + 6, 6)
   })
 
   it('усиление и проплав выступают на заданную высоту', () => {
