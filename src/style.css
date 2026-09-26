@@ -490,6 +490,73 @@ tr.crossing td {
   color: var(--muted);
 }
 
+.btn.accent {
+  background: var(--ink);
+  color: var(--panel);
+  border-color: var(--ink);
+}
+
+.share {
+  width: min(360px, calc(100vw - 32px));
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 20px;
+  background: var(--panel);
+  color: var(--ink);
+  text-align: center;
+}
+
+.share::backdrop {
+  background: rgb(0 0 0 / 0.45);
+}
+
+.share h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  text-wrap: balance;
+}
+
+.share-hint {
+  margin: 4px 0 12px;
+  color: var(--muted);
+}
+
+/* QR всегда тёмный на белом, иначе камеры читают хуже */
+.qr {
+  background: #fff;
+  border-radius: 6px;
+  padding: 8px;
+}
+
+.qr svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.share-check {
+  margin-top: 12px;
+  color: var(--ink);
+}
+
+.share-url {
+  max-height: 4.5em;
+  overflow-y: auto;
+  display: block;
+  margin-top: 12px;
+  font: 13px var(--mono);
+  word-break: break-all;
+  user-select: all;
+}
+
+.share-actions {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 14px;
+}
+
 .toast {
   position: fixed;
   left: 50%;

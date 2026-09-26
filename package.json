@@ -11,10 +11,12 @@
     "build:single": "vue-tsc -b && vite build --mode single && mv dist-single/index.html dist-single/hopecad.html"
   },
   "dependencies": {
+    "qrcode": "^1.5.4",
     "vue": "^3.5.42"
   },
   "devDependencies": {
     "@types/node": "^24.13.3",
+    "@types/qrcode": "^1.5.6",
     "@vitejs/plugin-vue": "^6.0.8",
     "@vue/tsconfig": "^0.9.1",
     "typescript": "~6.0.2",

@@ -1,14 +1,17 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { nextTick, onMounted, ref } from 'vue'
+import { decodeScheme } from './core/share'
 import Scene from './components/Scene.vue'
 import ControlPanel from './components/ControlPanel.vue'
 import Results from './components/Results.vue'
+import ShareDialog from './components/ShareDialog.vue'
 import { replaceScheme, scheme } from './store'
 import { defaultScheme, normalizeScheme } from './core/defaults'
 import { download, stamp, svgForExport, svgToPng } from './export'
 
 const scene = ref<InstanceType<typeof Scene>>()
 const fileInput = ref<HTMLInputElement>()
+const share = ref<InstanceType<typeof ShareDialog>>()
 const showStamp = ref(true)
 const toast = ref('')
 const confirmReset = ref(false)
@@ -68,6 +71,22 @@ async function openScheme(e: Event) {
   }
 }
 
+// Схема из ссылки (#s=...) перекрывает сохранённую; после открытия убираем её из адреса,
+// чтобы перезагрузка не откатывала правки
+onMounted(async () => {
+  const code = new URLSearchParams(location.hash.slice(1)).get('s')
+  if (!code) return
+  history.replaceState(null, '', location.pathname + location.search)
+  try {
+    replaceScheme(await decodeScheme(code))
+    await nextTick()
+    scene.value?.fitWeld()
+    say('Открыта схема из ссылки')
+  } catch {
+    say('Ссылка повреждена, открыта последняя сохранённая схема')
+  }
+})
+
 function reset() {
   if (!confirmReset.value) {
     confirmReset.value = true
@@ -116,6 +135,9 @@ function reset() {
           </button>
           <input ref="fileInput" type="file" accept="application/json,.json" hidden @change="openScheme" />
         </div>
+        <div class="group">
+          <button class="btn accent" @click="share?.open()">Поделиться</button>
+        </div>
       </nav>
     </header>
 
@@ -128,6 +150,7 @@ function reset() {
       <Results />
     </main>
 
+    <ShareDialog ref="share" />
     <div class="toast" role="status" aria-live="polite" :hidden="!toast">{{ toast }}</div>
   </div>
 </template>
