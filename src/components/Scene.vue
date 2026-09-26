@@ -37,7 +37,7 @@ function fitWeld() {
     if (!r.probe.visible) continue
     const w = r.probe.wedge
     span = Math.max(span, r.frame.s + w.length - w.front + 4)
-    y1 = Math.max(y1, G.R + w.height + 10)
+    y1 = Math.max(y1, G.wall[r.probe.side].R + w.height + 10)
     for (const p of r.trace.points) {
       span = Math.max(span, Math.abs(p.x) + 4)
       y0 = Math.min(y0, p.y - 4)
@@ -79,14 +79,9 @@ onBeforeUnmount(() => ro?.disconnect())
 
 // ---------- Геометрия на экране ----------
 
-const annulusPath = computed(() => {
-  const G = geometry.value
-  const cx = X(0)
-  const cy = Y(0)
-  const circle = (rho: number) =>
-    `M${cx + rho},${cy}A${rho},${rho} 0 1 0 ${cx - rho},${cy}A${rho},${rho} 0 1 0 ${cx + rho},${cy}Z`
-  return circle(G.R * view.k) + circle(G.r * view.k)
-})
+const basePath = computed(() =>
+  geometry.value.basePolygons.map((poly) => 'M' + poly.map(pt).join('L') + 'Z').join(''),
+)
 
 const weldPath = computed(() => 'M' + geometry.value.weldPolygon.map(pt).join('L') + 'Z')
 
@@ -168,6 +163,7 @@ const stamp = computed(() => {
       : weld.type === 'I'
         ? `Шов без скоса кромок, зазор ${weld.gap} мм`
         : `Разделка ${WELD_NAMES[weld.type]} ${weld.bevel}°, зазор ${weld.gap}, притупление ${weld.land} мм`,
+    ...(weld.misalign ? [`Смещение кромок ${Math.abs(weld.misalign)} мм, выше ${weld.misalign > 0 ? 'правая' : 'левая'}`] : []),
     ...results.value
       .filter((r) => r.probe.visible)
       .map(
@@ -239,8 +235,8 @@ function onMove(e: PointerEvent) {
     let a = Math.atan2(w.y, w.x)
     if (a < -Math.PI / 2) a += 2 * Math.PI
     const side = a <= Math.PI / 2 ? 'R' : 'L'
-    const s = Math.max(G.R * Math.abs(a - Math.PI / 2), probeSMin(G, probe))
     probe.side = side
+    const s = Math.max(G.wall[side].R * Math.abs(a - Math.PI / 2), probeSMin(G, probe))
     probe.s = Math.round(s * 10) / 10
   }
 }
@@ -308,9 +304,9 @@ const svgCss = `
 
       <rect class="bg" x="0" y="0" :width="size.W" :height="size.H" />
 
-      <path class="steel" :d="annulusPath" fill-rule="evenodd" />
-      <path :d="annulusPath" fill="url(#hatch-base)" fill-rule="evenodd" />
-      <path class="outline" :d="annulusPath" />
+      <path class="steel" :d="basePath" />
+      <path :d="basePath" fill="url(#hatch-base)" />
+      <path class="outline" :d="basePath" />
 
       <path class="weld" :d="weldPath" />
       <path :d="weldPath" fill="url(#hatch-weld)" />

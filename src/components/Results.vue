@@ -2,10 +2,11 @@
 import { geometry, results } from '../store'
 import { LEG_NAMES, SIDE_NAMES, SURFACE_NAMES, fmt, fmtAxis } from '../labels'
 import { DEG } from '../core/geometry'
+import type { Side } from '../core/types'
 
-const innerIncidence = (angle: number) => {
-  const G = geometry.value
-  const v = (G.R / G.r) * Math.sin(angle * DEG)
+const innerIncidence = (angle: number, side: Side) => {
+  const w = geometry.value.wall[side]
+  const v = (w.R / w.r) * Math.sin(angle * DEG)
   return v >= 1 ? null : Math.asin(v) / DEG
 }
 </script>
@@ -20,8 +21,8 @@ const innerIncidence = (angle: number) => {
           {{ r.probe.angle }}° · {{ SIDE_NAMES[r.probe.side] }} · {{ fmt(r.frame.s) }} мм от оси ·
           {{ LEG_NAMES[r.probe.legs - 1] }}
         </span>
-        <span v-if="innerIncidence(r.probe.angle) !== null" class="chip">
-          на внутренней стенке {{ fmt(innerIncidence(r.probe.angle)!) }}°
+        <span v-if="innerIncidence(r.probe.angle, r.probe.side) !== null" class="chip">
+          на внутренней стенке {{ fmt(innerIncidence(r.probe.angle, r.probe.side)!) }}°
         </span>
       </header>
 

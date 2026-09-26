@@ -35,6 +35,8 @@ export interface Weld {
   widthTop: number
   /** Для «по факту»: ширина шва по внутренней поверхности, мм */
   widthBottom: number
+  /** Смещение кромок: правая стенка выше левой на столько мм (− ниже) */
+  misalign: number
 }
 
 export interface Wedge {
@@ -78,22 +80,34 @@ export interface Arc {
   sweep: number
 }
 
+export interface Wall {
+  /** Наружный радиус, мм */
+  R: number
+  /** Внутренний радиус, мм */
+  r: number
+}
+
 export interface Geometry {
+  /** Номинальные радиусы (левая стенка) */
   R: number
   r: number
   t: number
+  /** Стенка слева и справа от шва; различаются при смещении кромок */
+  wall: Record<Side, Wall>
   /** Кромка справа от оси, от внутренней поверхности к наружной */
   faceR: Vec[]
-  /** Кромка слева (зеркальная) */
+  /** Кромка слева */
   faceL: Vec[]
-  /** Полуширина валика усиления по наружной поверхности */
-  capEdgeX: number
-  /** Угловое положение края усиления справа, рад */
-  capEdgeAngle: number
+  /** Края валика усиления: расстояние от оси по x и полярный угол, рад */
+  capEdge: Record<Side, { x: number; angle: number }>
   capApexY: number
   rootApexY: number
   /** Граница металла, от которой отражается луч */
   arcs: Arc[]
+  /** То же без валика и проплава — для наведения */
+  bareArcs: Arc[]
   /** Контур металла шва для отрисовки */
   weldPolygon: Vec[]
+  /** Основной металл: левая и правая половины кольца */
+  basePolygons: Vec[][]
 }

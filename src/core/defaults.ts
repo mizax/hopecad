@@ -25,7 +25,7 @@ export function defaultScheme(): Scheme {
   const scheme: Scheme = {
     version: 1,
     pipe: { od: 219, t: 16 },
-    weld: { type: 'V', bevel: 30, gap: 2, land: 1.5, capH: 2, capOver: 2, rootH: 1.5, rootOver: 1.5, widthTop: 22, widthBottom: 4 },
+    weld: { type: 'V', bevel: 30, gap: 2, land: 1.5, capH: 2, capOver: 2, rootH: 1.5, rootOver: 1.5, widthTop: 22, widthBottom: 4, misalign: 0 },
     probes: [makeProbe(0, 'L', 50, 40, 1), makeProbe(1, 'R', 45, 21, 1), makeProbe(2, 'R', 45, 60, 2)],
   }
   const G = buildGeometry(scheme.pipe, scheme.weld)
@@ -55,6 +55,7 @@ export function normalizeScheme(raw: unknown): Scheme {
     rootOver: num(w.rootOver, d.weld.rootOver),
     widthTop: num(w.widthTop, d.weld.widthTop),
     widthBottom: num(w.widthBottom, d.weld.widthBottom),
+    misalign: num(w.misalign, d.weld.misalign),
   }
   const probes = Array.isArray(o.probes)
     ? o.probes.map((p, i) => {

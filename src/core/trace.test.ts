@@ -4,7 +4,7 @@ import { makeProbe } from './defaults'
 import { aimProbe, analyzeProbe, beamDir, faceCrossings, probeFrame, probeSMin, traceRay } from './trace'
 import type { Weld } from './types'
 
-const plainWeld: Weld = { type: 'V', bevel: 30, gap: 2, land: 1.5, capH: 0, capOver: 0, rootH: 0, rootOver: 0, widthTop: 22, widthBottom: 4 }
+const plainWeld: Weld = { type: 'V', bevel: 30, gap: 2, land: 1.5, capH: 0, capOver: 0, rootH: 0, rootOver: 0, widthTop: 22, widthBottom: 4, misalign: 0 }
 const weld: Weld = { ...plainWeld, capH: 2, capOver: 2, rootH: 1.5, rootOver: 1.5 }
 
 describe('геометрия', () => {
@@ -25,7 +25,7 @@ describe('геометрия', () => {
     expect(Math.hypot(A.x, A.y)).toBeCloseTo(G.r, 9)
     expect(C.x).toBeCloseTo(10, 9)
     expect(Math.hypot(C.x, C.y)).toBeCloseTo(G.R, 9)
-    expect(G.capEdgeX).toBeCloseTo(10, 9)
+    expect(G.capEdge.R.x).toBeCloseTo(10, 9)
     expect(G.capApexY).toBeCloseTo(G.R + 3, 9)
     expect(G.rootApexY).toBeCloseTo(G.r - 2, 9)
     const res = analyzeProbe(G, makeProbe(0, 'R', 45, 0, 1))
@@ -103,7 +103,7 @@ describe('трассировка', () => {
     const G = buildGeometry({ od: 219, t: 16 }, weld)
     const res = analyzeProbe(G, makeProbe(0, 'R', 45, 1, 1))
     expect(res.frame.clamped).toBe(true)
-    expect(res.frame.s).toBeGreaterThan(G.capEdgeX)
+    expect(res.frame.s).toBeGreaterThan(G.capEdge.R.x)
   })
 })
 
@@ -173,5 +173,54 @@ describe('можно ли встать', () => {
   it('70° на 219×16 в ось не попасть ни прямым, ни отражённым', () => {
     const res = analyzeProbe(G, makeProbe(0, 'R', 70, 40, 1))
     expect(res.reach.every((x) => x.s === null)).toBe(true)
+  })
+})
+
+describe('смещение кромок', () => {
+  const shifted: Weld = { ...weld, misalign: 2 }
+  const G = buildGeometry({ od: 219, t: 16 }, shifted)
+
+  it('правая стенка выше на δ, левая на месте, толщина та же', () => {
+    expect(G.wall.L).toEqual({ R: 109.5, r: 93.5 })
+    expect(G.wall.R.R).toBeCloseTo(111.5, 9)
+    expect(G.wall.R.r).toBeCloseTo(95.5, 9)
+    const topR = G.faceR[G.faceR.length - 1]
+    const topL = G.faceL[G.faceL.length - 1]
+    expect(Math.hypot(topR.x, topR.y)).toBeCloseTo(111.5, 6)
+    expect(Math.hypot(topL.x, topL.y)).toBeCloseTo(109.5, 6)
+    expect(Math.hypot(G.faceL[0].x, G.faceL[0].y)).toBeCloseTo(93.5, 6)
+  })
+
+  it('валик выступает над более высокой кромкой, проплав — под более низкой', () => {
+    expect(G.capApexY).toBeCloseTo(111.5 + 2, 1)
+    expect(G.rootApexY).toBeCloseTo(93.5 - 1.5, 1)
+  })
+
+  it('ПЭП справа стоит на своей, более высокой стенке', () => {
+    const res = analyzeProbe(G, makeProbe(0, 'R', 45, 60, 1))
+    expect(Math.hypot(res.frame.P.x, res.frame.P.y)).toBeCloseTo(111.5, 9)
+    expect(res.legs[0].surface).toBe('inner')
+    expect(res.legs[0].depth).toBeCloseTo(16, 6)
+    const expected = Math.asin((111.5 / 95.5) * Math.sin(45 * DEG)) / DEG
+    expect(res.legs[0].incidence).toBeCloseTo(expected, 6)
+  })
+
+  it('наведение работает с обеих сторон', () => {
+    for (const side of ['L', 'R'] as const) {
+      const p = makeProbe(0, side, 45, 0, 2)
+      const s = aimProbe(G, p)
+      expect(s).not.toBeNull()
+    }
+  })
+
+  it('без смещения геометрия прежняя', () => {
+    const G0 = buildGeometry({ od: 219, t: 16 }, weld)
+    expect(G0.wall.R).toEqual(G0.wall.L)
+    expect(G0.capApexY).toBeCloseTo(G0.R + 2, 6)
+  })
+
+  it('многократно отражённый луч проходит через шов со ступенькой без обрывов', () => {
+    const res = analyzeProbe(G, makeProbe(0, 'R', 50, 80, 5))
+    expect(res.trace.hits).toHaveLength(5)
   })
 })

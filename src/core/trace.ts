@@ -1,4 +1,4 @@
-import { DEG } from './geometry'
+import { DEG, wallAt } from './geometry'
 import type { Arc, Geometry, Probe, Side, Surface, Vec } from './types'
 
 /** Скорости звука, мм/мкс */
@@ -27,6 +27,8 @@ export interface Trace {
   start: Vec
   points: Vec[]
   hits: Hit[]
+  /** Направление после последнего отражения */
+  dir: Vec
 }
 
 export function inArc(angle: number, arc: Arc) {
@@ -74,7 +76,7 @@ export function traceRay(G: Geometry, P0: Vec, d0: Vec, legs: number): Trace {
     P = best.Q
     points.push(P)
   }
-  return { start: P0, points, hits }
+  return { start: P0, points, hits, dir: d }
 }
 
 export interface ProbeFrame {
@@ -94,15 +96,16 @@ export interface ProbeFrame {
 
 /** Ближе этого расстояния от оси передняя грань призмы упирается в валик */
 export function probeSMin(G: Geometry, p: Probe) {
-  return G.R * (Math.PI / 2 - G.capEdgeAngle) + p.wedge.front
+  return G.wall[p.side].R * Math.abs(G.capEdge[p.side].angle - Math.PI / 2) + p.wedge.front
 }
 
 export function probeFrame(G: Geometry, side: Side, s: number, sMin = 0): ProbeFrame {
   const sc = Math.max(s, sMin)
-  const phi = side === 'R' ? Math.PI / 2 - sc / G.R : Math.PI / 2 + sc / G.R
+  const Rs = G.wall[side].R
+  const phi = side === 'R' ? Math.PI / 2 - sc / Rs : Math.PI / 2 + sc / Rs
   const n = { x: Math.cos(phi), y: Math.sin(phi) }
   const tan = side === 'R' ? { x: -n.y, y: n.x } : { x: n.y, y: -n.x }
-  return { s: sc, sMin, clamped: s < sMin, phi, P: { x: G.R * n.x, y: G.R * n.y }, n, tan }
+  return { s: sc, sMin, clamped: s < sMin, phi, P: { x: Rs * n.x, y: Rs * n.y }, n, tan }
 }
 
 export function beamDir(F: ProbeFrame, angleDeg: number): Vec {
@@ -126,7 +129,12 @@ function axisAngle(Q: Vec) {
 
 /** Смещение проекции точки на наружную поверхность от оси шва, мм (+ справа) */
 export function offsetFromAxis(G: Geometry, Q: Vec) {
-  return G.R * (Math.PI / 2 - axisAngle(Q))
+  return wallAt(G, Q).R * (Math.PI / 2 - axisAngle(Q))
+}
+
+/** Глубина точки от наружной поверхности своей стенки, мм */
+export function depthOf(G: Geometry, Q: Vec) {
+  return wallAt(G, Q).R - Math.hypot(Q.x, Q.y)
 }
 
 function segIntersect(a: Vec, b: Vec, c: Vec, d: Vec) {
@@ -177,7 +185,7 @@ export function faceCrossings(G: Geometry, tr: Trace): Crossing[] {
           side,
           leg: i + 1,
           point,
-          depth: G.R - Math.hypot(point.x, point.y),
+          depth: depthOf(G, point),
           path: pathBefore + len * hit.t,
           angleToNormal: Math.acos(Math.min(1, cos)) / DEG,
         })
@@ -233,8 +241,8 @@ export function analyzeProbe(G: Geometry, p: Probe): ProbeResult {
       index: i + 1,
       surface: h.surface,
       path: h.path,
-      depth: G.R - Math.hypot(h.point.x, h.point.y),
-      fromIndex: G.R * (psi - F.phi) * (p.side === 'R' ? 1 : -1),
+      depth: depthOf(G, h.point),
+      fromIndex: G.wall[p.side].R * (psi - F.phi) * (p.side === 'R' ? 1 : -1),
       fromAxis: offsetFromAxis(G, h.point),
       incidence: h.incidence,
     }
@@ -244,7 +252,7 @@ export function analyzeProbe(G: Geometry, p: Probe): ProbeResult {
   if (F.clamped) {
     warnings.push(`ПЭП упирается в валик усиления: ближе ${F.sMin.toFixed(1)} мм от оси не поставить`)
   }
-  if (G.R * Math.sin(p.angle * DEG) >= G.r) {
+  if (G.wall[p.side].R * Math.sin(p.angle * DEG) >= G.wall[p.side].r) {
     warnings.push('Луч не достаёт до внутренней поверхности (R·sinβ ≥ r). Уменьшите угол ввода.')
   }
   tr.hits.forEach((h, i) => {
@@ -275,10 +283,10 @@ export function analyzeProbe(G: Geometry, p: Probe): ProbeResult {
 }
 
 /**
- * Подбирает расстояние от оси, при котором конец последнего участка луча
- * приходится на ось шва. Валик и проплав при наведении не учитываются:
- * целимся в точку на уровне поверхности трубы, иначе луч, зашедший в проплав,
- * упирается в его дальнюю стенку и конец «перепрыгивает» через ось.
+ * Подбирает расстояние от оси, при котором последний участок луча проходит через
+ * ось шва на уровне поверхности трубы. Валик и проплав при наведении не учитываются,
+ * иначе луч, зашедший в проплав, упирается в его дальнюю стенку и конец
+ * «перепрыгивает» через ось.
  * Возвращает s или null, если не получилось.
  *
  * legs — сколько участков луча (по умолчанию как у ПЭП); from — с какого s искать
@@ -286,22 +294,25 @@ export function analyzeProbe(G: Geometry, p: Probe): ProbeResult {
  */
 export function aimProbe(G: Geometry, p: Probe, opts: { legs?: number; from?: number } = {}): number | null {
   const nLegs = opts.legs ?? p.legs
-  const bare: Geometry = {
-    ...G,
-    arcs: [
-      { name: 'outer', cx: 0, cy: 0, rho: G.R, a0: 0, sweep: TAU },
-      { name: 'inner', cx: 0, cy: 0, rho: G.r, a0: 0, sweep: TAU },
-    ],
-  }
+  const bare: Geometry = { ...G, arcs: G.bareArcs }
   const sFrom = opts.from ?? probeSMin(G, p)
   const sMax = G.R * Math.PI * 0.9
+  // Цель — точка на оси на уровне поверхности (при смещении кромок — посередине ступеньки)
+  const w = G.wall
+  const target: Vec = { x: 0, y: nLegs % 2 === 1 ? (w.L.r + w.R.r) / 2 : (w.L.R + w.R.R) / 2 }
+  /** Расстояние от цели до последнего участка луча со знаком, мм */
   const endOffset = (s: number) => {
     const F = probeFrame(bare, p.side, s)
-    const tr = traceRay(bare, F.P, beamDir(F, p.angle), nLegs)
-    if (tr.hits.length < nLegs) return null
-    // прямой луч должен дойти до внутренней стенки, отражённые — чередовать стенки
+    const tr = traceRay(bare, F.P, beamDir(F, p.angle), nLegs - 1)
+    if (tr.hits.length < nLegs - 1) return null
+    // промежуточные отражения — поочерёдно от внутренней и наружной стенки
     if (tr.hits.some((h, i) => h.surface !== (i % 2 === 0 ? 'inner' : 'outer'))) return null
-    return offsetFromAxis(bare, tr.points[tr.points.length - 1])
+    const P = tr.points[tr.points.length - 1]
+    const d = tr.dir
+    const tx = target.x - P.x
+    const ty = target.y - P.y
+    if (tx * d.x + ty * d.y <= 0) return null
+    return d.x * ty - d.y * tx
   }
   let prev: { s: number; f: number } | null = null
   for (let s = sFrom; s <= sMax; s += 0.25) {
@@ -320,9 +331,8 @@ export function aimProbe(G: Geometry, p: Probe, opts: { legs?: number; from?: nu
         if (Math.sign(fm) === Math.sign(lo.f)) lo = { s: mid, f: fm }
         else hi = { s: mid, f: fm }
       }
-      const s0 = (lo.s + hi.s) / 2
-      const f0 = endOffset(s0)
-      if (f0 !== null && Math.abs(f0) < 0.05) return s0
+      const best = Math.abs(lo.f) <= Math.abs(hi.f) ? lo : hi
+      if (Math.abs(best.f) < 0.05) return best.s
     }
     prev = { s, f }
   }

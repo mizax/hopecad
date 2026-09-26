@@ -67,6 +67,8 @@ function onAim(p: Probe) {
         <NumField v-model="scheme.weld.rootH" label="Проплав: высота" :min="0" :max="4" :step="0.1" unit="мм" />
         <NumField v-model="scheme.weld.rootOver" label="Проплав: заход" :min="0" :max="4" :step="0.1" unit="мм" />
       </template>
+      <NumField v-model="scheme.weld.misalign" label="Смещение кромок" :min="-8" :max="8" :step="0.1" unit="мм" />
+      <p class="hint">+ правая кромка выше левой, − ниже.</p>
     </details>
 
     <details class="section" open>
