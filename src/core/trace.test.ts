@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { DEG, buildGeometry } from './geometry'
 import { makeProbe } from './defaults'
-import { aimProbe, analyzeProbe, beamDir, faceCrossings, probeFrame, traceRay } from './trace'
+import { aimProbe, analyzeProbe, beamDir, faceCrossings, probeFrame, probeSMin, traceRay } from './trace'
 import type { Weld } from './types'
 
 const plainWeld: Weld = { type: 'V', bevel: 30, gap: 2, land: 1.5, capH: 0, capOver: 0, rootH: 0, rootOver: 0, widthTop: 22, widthBottom: 4 }
@@ -141,5 +141,37 @@ describe('наведение', () => {
   it('луч, не достающий до внутренней стенки, не наводится', () => {
     const G = buildGeometry({ od: 219, t: 16 }, weld)
     expect(aimProbe(G, makeProbe(0, 'R', 70, 0, 1))).toBeNull()
+  })
+})
+
+describe('можно ли встать', () => {
+  const G = buildGeometry({ od: 219, t: 16 }, weld)
+  const direct = 109.5 * (Math.asin((109.5 / 93.5) * Math.sin(45 * DEG)) - 45 * DEG)
+
+  it('короткая стрела: прямой луч в корень ставится', () => {
+    const p = makeProbe(0, 'R', 45, 40, 1)
+    const res = analyzeProbe(G, p)
+    const d = res.reach.find((x) => x.legs === 1)!
+    expect(d.s).toBeCloseTo(direct, 2)
+    expect(d.fits).toBe(true)
+    expect(d.shortBy).toBe(0)
+    expect(res.clearance).toBeCloseTo(40 - probeSMin(G, p), 9)
+  })
+
+  it('длинная стрела: прямой луч не встаёт, считается сколько не хватает', () => {
+    const p = makeProbe(0, 'R', 45, 40, 1)
+    p.wedge.front = 12
+    const res = analyzeProbe(G, p)
+    const d = res.reach.find((x) => x.legs === 1)!
+    expect(d.s).toBeCloseTo(direct, 2)
+    expect(d.fits).toBe(false)
+    expect(d.shortBy).toBeCloseTo(probeSMin(G, p) - direct, 2)
+    // однократно отражённым — встаёт
+    expect(res.reach.find((x) => x.legs === 2)!.fits).toBe(true)
+  })
+
+  it('70° на 219×16 в ось не попасть ни прямым, ни отражённым', () => {
+    const res = analyzeProbe(G, makeProbe(0, 'R', 70, 40, 1))
+    expect(res.reach.every((x) => x.s === null)).toBe(true)
   })
 })

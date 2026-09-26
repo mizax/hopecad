@@ -63,7 +63,7 @@ export function normalizeScheme(raw: unknown): Scheme {
           id: typeof p?.id === 'string' ? p.id : base.id,
           name: typeof p?.name === 'string' ? p.name : base.name,
           side: p?.side === 'L' ? ('L' as const) : ('R' as const),
-          angle: num(p?.angle, base.angle),
+          angle: Math.min(75, Math.max(30, num(p?.angle, base.angle))),
           s: num(p?.s, base.s),
           legs: Math.round(num(p?.legs, base.legs)),
           color: typeof p?.color === 'string' ? p.color : base.color,

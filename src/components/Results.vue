@@ -25,6 +25,19 @@ const innerIncidence = (angle: number) => {
         </span>
       </header>
 
+      <ul class="reach">
+        <li class="reach-item">
+          <span class="reach-k">Запас хода до валика</span>
+          <span class="reach-v">{{ r.frame.clamped ? 'упирается' : fmt(r.clearance) + ' мм' }}</span>
+        </li>
+        <li v-for="x in r.reach" :key="x.legs" class="reach-item" :class="x.s === null ? 'na' : x.fits ? 'ok' : 'bad'">
+          <span class="reach-k">{{ LEG_NAMES[x.legs - 1] }} в ось шва</span>
+          <span v-if="x.s === null" class="reach-v">не попасть при {{ r.probe.angle }}°</span>
+          <span v-else-if="x.fits" class="reach-v">встать на {{ fmt(x.s) }} мм от оси</span>
+          <span v-else class="reach-v">нужно {{ fmt(x.s) }} мм, не встаёт: не хватает {{ fmt(x.shortBy) }} мм</span>
+        </li>
+      </ul>
+
       <div class="table-wrap">
         <table>
           <thead>

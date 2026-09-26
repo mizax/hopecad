@@ -113,7 +113,7 @@ export function beamDir(F: ProbeFrame, angleDeg: number): Vec {
   }
 }
 
-/** Угол призмы (оргстекло), дающий заданный угол ввода поперечной волны в сталь, ° */
+/** Угол призмы (оргстекло), дающий заданный угол ввода поперечной волны в сталь, °. Нужен только для рисунка ПЭП */
 export function wedgeAngle(betaDeg: number) {
   return Math.asin((C_WEDGE / C_SHEAR) * Math.sin(betaDeg * DEG)) / DEG
 }
@@ -200,13 +200,27 @@ export interface LegInfo {
   incidence: number
 }
 
+/** Где надо стоять, чтобы конец луча пришёлся на ось шва, и встаёт ли туда ПЭП */
+export interface Reach {
+  legs: number
+  /** Нужное расстояние от оси до точки ввода, мм; null — таким лучом в ось не попасть */
+  s: number | null
+  /** ПЭП в эту позицию встаёт (передняя грань не упирается в валик) */
+  fits: boolean
+  /** Насколько не хватает места, мм (0, если встаёт) */
+  shortBy: number
+}
+
 export interface ProbeResult {
   probe: Probe
   frame: ProbeFrame
+  /** Запас хода: от передней грани ПЭП до края валика по поверхности, мм */
+  clearance: number
+  /** Позиции для прямого и однократно отражённого луча (и текущего, если он дальше) */
+  reach: Reach[]
   trace: Trace
   legs: LegInfo[]
   crossings: Crossing[]
-  wedgeAngle: number
   warnings: string[]
 }
 
@@ -242,13 +256,20 @@ export function analyzeProbe(G: Geometry, p: Probe): ProbeResult {
     }
   })
 
+  const reach: Reach[] = [...new Set([1, 2, p.legs])].map((n) => {
+    const need = aimProbe(G, p, { legs: n, from: 0 })
+    const fits = need !== null && need >= F.sMin - 1e-6
+    return { legs: n, s: need, fits, shortBy: need === null || fits ? 0 : F.sMin - need }
+  })
+
   return {
     probe: p,
     frame: F,
+    clearance: F.s - F.sMin,
+    reach,
     trace: tr,
     legs,
     crossings: faceCrossings(G, tr),
-    wedgeAngle: wedgeAngle(p.angle),
     warnings,
   }
 }
@@ -259,8 +280,12 @@ export function analyzeProbe(G: Geometry, p: Probe): ProbeResult {
  * целимся в точку на уровне поверхности трубы, иначе луч, зашедший в проплав,
  * упирается в его дальнюю стенку и конец «перепрыгивает» через ось.
  * Возвращает s или null, если не получилось.
+ *
+ * legs — сколько участков луча (по умолчанию как у ПЭП); from — с какого s искать
+ * (по умолчанию с ближайшей к шву позиции, куда ПЭП физически встаёт; 0 — без учёта валика).
  */
-export function aimProbe(G: Geometry, p: Probe): number | null {
+export function aimProbe(G: Geometry, p: Probe, opts: { legs?: number; from?: number } = {}): number | null {
+  const nLegs = opts.legs ?? p.legs
   const bare: Geometry = {
     ...G,
     arcs: [
@@ -268,18 +293,18 @@ export function aimProbe(G: Geometry, p: Probe): number | null {
       { name: 'inner', cx: 0, cy: 0, rho: G.r, a0: 0, sweep: TAU },
     ],
   }
-  const sMin = probeSMin(G, p)
+  const sFrom = opts.from ?? probeSMin(G, p)
   const sMax = G.R * Math.PI * 0.9
   const endOffset = (s: number) => {
     const F = probeFrame(bare, p.side, s)
-    const tr = traceRay(bare, F.P, beamDir(F, p.angle), p.legs)
-    if (tr.hits.length < p.legs) return null
+    const tr = traceRay(bare, F.P, beamDir(F, p.angle), nLegs)
+    if (tr.hits.length < nLegs) return null
     // прямой луч должен дойти до внутренней стенки, отражённые — чередовать стенки
     if (tr.hits.some((h, i) => h.surface !== (i % 2 === 0 ? 'inner' : 'outer'))) return null
     return offsetFromAxis(bare, tr.points[tr.points.length - 1])
   }
   let prev: { s: number; f: number } | null = null
-  for (let s = sMin; s <= sMax; s += 0.25) {
+  for (let s = sFrom; s <= sMax; s += 0.25) {
     const f = endOffset(s)
     if (f === null) {
       prev = null
